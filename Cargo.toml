@@ -1,7 +1,7 @@
 [package]
 authors = ["Xuanwo <github@xuanwo.io>>"]
 categories = ["command-line-utilities"]
-description = "Replace with description"
+description = "hickory resolver support for reqwest"
 documentation = "https://docs.rs/reqwest-hickory-resolver"
 repository = "https://github.com/Xuanwo/reqwest-hickory-resolver"
 edition = "2021"
