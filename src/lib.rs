@@ -44,8 +44,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-pub use hickory_resolver::config::ResolverConfig;
-pub use hickory_resolver::config::ResolverOpts;
 use hickory_resolver::lookup_ip::LookupIpIntoIter;
 use hickory_resolver::system_conf;
 use hickory_resolver::TokioAsyncResolver;
