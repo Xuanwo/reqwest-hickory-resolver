@@ -2,11 +2,15 @@
 authors = ["Xuanwo <github@xuanwo.io>>"]
 categories = ["command-line-utilities"]
 description = "Replace with description"
-documentation = "https://docs.rs/formwork"
-repository = "https://github.com/Xuanwo/formwork"
+documentation = "https://docs.rs/reqwest-hickory-resolver"
+repository = "https://github.com/Xuanwo/reqwest-hickory-resolver"
 edition = "2021"
 license = "Apache-2.0"
-name = "formwork"
+name = "reqwest-hickory-resolver"
 version = "0.0.1"
 
 [dependencies]
+hickory-resolver = "0.24.0"
+reqwest = { version = "0.11", default-features = false }
+hyper = {version = "0.14", default-features = false, features = ["client", "tcp"] }
+once_cell = "1.19.0"

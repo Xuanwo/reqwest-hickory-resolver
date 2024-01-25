@@ -1,25 +1,15 @@
-# formwork &emsp; [![Build Status]][actions] [![Latest Version]][crates.io]
+# reqwest-hickory-resolver &emsp; [![Build Status]][actions] [![Latest Version]][crates.io]
 
-[Build Status]: https://img.shields.io/github/actions/workflow/status/Xuanwo/formwork/ci.yml
-[actions]: https://github.com/Xuanwo/formwork/actions?query=branch%3Amain
-[Latest Version]: https://img.shields.io/crates/v/formwork.svg
-[crates.io]: https://crates.io/crates/formwork
+[Build Status]: https://img.shields.io/github/actions/workflow/status/Xuanwo/reqwest-hickory-resolver/ci.yml
+[actions]: https://github.com/Xuanwo/reqwest-hickory-resolver/actions?query=branch%3Amain
+[Latest Version]: https://img.shields.io/crates/v/reqwest-hickory-resolver.svg
+[crates.io]: https://crates.io/crates/reqwest-hickory-resolver
 
-`formwork` is my favourite rust template.
-
-> Please replace with valid value.
+`reqwest-hickory-resolver` is the resolver for [reqwest](https://github.com/seanmonstar/reqwest) based on [`hickory-dns`](https://github.com/hickory-dns/hickory-dns).
 
 ## Quick Start
 
-Replace all placeholder with valid values, for example:
-
-- `Xuanwo` => github login
-- `github@xuanwo.io` => email
-- `formwork` => crate name
-
-```rust
-// Replace with quick Start here
-```
+TODO
 
 ## Contributing
 
@@ -27,7 +17,7 @@ Check out the [CONTRIBUTING.md](./CONTRIBUTING.md) guide for more details on get
 
 ## Getting help
 
-Submit [issues](https://github.com/Xuanwo/formwork/issues/new/choose) for bug report or asking questions in [discussion](https://github.com/Xuanwo/formwork/discussions/new?category=q-a).
+Submit [issues](https://github.com/Xuanwo/reqwest-hickory-resolver/issues/new/choose) for bug report or asking questions in [discussion](https://github.com/Xuanwo/reqwest-hickory-resolver/discussions/new?category=q-a).
 
 #### License
 
