@@ -54,6 +54,10 @@ Check out the [CONTRIBUTING.md](./CONTRIBUTING.md) guide for more details on get
 
 Submit [issues](https://github.com/Xuanwo/reqwest-hickory-resolver/issues/new/choose) for bug report or asking questions in [discussion](https://github.com/Xuanwo/reqwest-hickory-resolver/discussions/new?category=q-a).
 
+## Acknowledgements
+
+This project is based on [reqwest](https://github.com/seanmonstar/reqwest)'s [`TrustDnsResolver`](https://github.com/seanmonstar/reqwest/blob/eeaece9709aa0dcb6b2b04b16d58ff5e580a6f40/src/dns/trust_dns.rs).
+
 #### License
 
 <sup>
