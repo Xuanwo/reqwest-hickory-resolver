@@ -9,7 +9,42 @@
 
 ## Quick Start
 
-TODO
+Init client with `HickoryResolver`.
+
+```rust
+use std::sync::Arc;
+
+use reqwest::ClientBuilder;
+use reqwest_hickory_resolver::HickoryResolver;
+
+fn init_with_hickory_resolver() -> reqwest::Result<()> {
+    let mut builder = ClientBuilder::new();
+    builder = builder.dns_resolver(Arc::new(HickoryResolver::default()));
+    builder.build()?;
+    Ok(())
+}
+```
+
+
+HickoryResolver has cache support, we can share the same resolver across different client
+for better performance.
+
+```
+use std::sync::Arc;
+use once_cell::sync::Lazy;
+use reqwest::ClientBuilder;
+use reqwest_hickory_resolver::HickoryResolver;
+
+static GLOBAL_RESOLVER: Lazy<Arc<HickoryResolver>> =
+    Lazy::new(|| Arc::new(HickoryResolver::default()));
+    
+fn init_with_hickory_resolver() -> reqwest::Result<()> {
+    let mut builder = ClientBuilder::new();
+    builder = builder.dns_resolver(GLOBAL_RESOLVER.clone());
+    builder.build()?;
+    Ok(())
+}
+```
 
 ## Contributing
 
