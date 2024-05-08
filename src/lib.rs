@@ -49,9 +49,9 @@ use hickory_resolver::system_conf;
 use hickory_resolver::TokioAsyncResolver;
 use once_cell::sync::OnceCell;
 use reqwest::dns::Addrs;
+use reqwest::dns::Name;
 use reqwest::dns::Resolve;
 use reqwest::dns::Resolving;
-use reqwest::dns::Name;
 
 /// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
 #[derive(Debug, Default, Clone)]
