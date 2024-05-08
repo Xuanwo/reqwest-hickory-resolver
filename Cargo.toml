@@ -10,7 +10,6 @@ name = "reqwest-hickory-resolver"
 version = "0.0.2"
 
 [dependencies]
-hickory-resolver = "0.24.0"
-reqwest = { version = "0.11", default-features = false }
-hyper = {version = "0.14", default-features = false, features = ["client", "tcp"] }
+hickory-resolver = "0.24"
+reqwest = { version = "0.12", default-features = false }
 once_cell = "1.19.0"

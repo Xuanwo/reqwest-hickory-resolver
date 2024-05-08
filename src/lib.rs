@@ -47,9 +47,9 @@ use std::sync::Arc;
 use hickory_resolver::lookup_ip::LookupIpIntoIter;
 use hickory_resolver::system_conf;
 use hickory_resolver::TokioAsyncResolver;
-use hyper::client::connect::dns::Name;
 use once_cell::sync::OnceCell;
 use reqwest::dns::Addrs;
+use reqwest::dns::Name;
 use reqwest::dns::Resolve;
 use reqwest::dns::Resolving;
 
