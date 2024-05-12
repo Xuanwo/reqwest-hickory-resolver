@@ -44,7 +44,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use hickory_resolver::lookup_ip::LookupIpIntoIter;
 use hickory_resolver::system_conf;
 use hickory_resolver::TokioAsyncResolver;
 use once_cell::sync::OnceCell;
@@ -60,32 +59,45 @@ pub struct HickoryResolver {
     /// Tokio Runtime in initialization, so we must delay the actual
     /// construction of the resolver.
     state: Arc<OnceCell<TokioAsyncResolver>>,
+    rng: Option<rand::rngs::SmallRng>,
 }
 
-struct SocketAddrs {
-    iter: LookupIpIntoIter,
+impl HickoryResolver {
+    /// Enable shuffle for the hickory resolver to make sure the ip addrs returned are shuffled.
+    ///
+    /// NOTES: introduce shuffle will add extra overhead like more allocations and shuffling.
+    pub fn with_shuffle(mut self, shuffle: bool) -> Self {
+        if shuffle {
+            use rand::SeedableRng;
+            self.rng = Some(rand::rngs::SmallRng::from_entropy());
+        }
+
+        self
+    }
 }
 
 impl Resolve for HickoryResolver {
     fn resolve(&self, name: Name) -> Resolving {
-        let resolver = self.clone();
+        let mut hickory_resolver = self.clone();
         Box::pin(async move {
-            let resolver = resolver.state.get_or_try_init(new_resolver)?;
+            let resolver = hickory_resolver.state.get_or_try_init(new_resolver)?;
 
             let lookup = resolver.lookup_ip(name.as_str()).await?;
-            let addrs: Addrs = Box::new(SocketAddrs {
-                iter: lookup.into_iter(),
-            });
+
+            let addrs: Addrs = if let Some(rng) = &mut hickory_resolver.rng {
+                use rand::seq::SliceRandom;
+
+                // Collect all the addresses into a vector and shuffle them.
+                let mut ips = lookup.into_iter().collect::<Vec<_>>();
+                ips.shuffle(rng);
+
+                Box::new(ips.into_iter().map(|addr| SocketAddr::new(addr, 0)))
+            } else {
+                Box::new(lookup.into_iter().map(|addr| SocketAddr::new(addr, 0)))
+            };
+
             Ok(addrs)
         })
-    }
-}
-
-impl Iterator for SocketAddrs {
-    type Item = SocketAddr;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|ip_addr| SocketAddr::new(ip_addr, 0))
     }
 }
 
