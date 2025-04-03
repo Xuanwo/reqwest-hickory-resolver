@@ -40,17 +40,21 @@
 //! }
 //! ```
 
-use std::io;
-use std::net::SocketAddr;
-use std::sync::Arc;
-
-use hickory_resolver::system_conf;
-use hickory_resolver::TokioAsyncResolver;
-use once_cell::sync::OnceCell;
+use hickory_resolver::config::ResolverConfig;
+use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::Resolver;
+use hickory_resolver::TokioResolver;
 use reqwest::dns::Addrs;
 use reqwest::dns::Name;
 use reqwest::dns::Resolve;
 use reqwest::dns::Resolving;
+use std::mem;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::sync::OnceLock;
+
+// Re-export ResolverOpts as part of the public API.
+pub use hickory_resolver::config::ResolverOpts;
 
 /// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
 #[derive(Debug, Default, Clone)]
@@ -58,21 +62,49 @@ pub struct HickoryResolver {
     /// Since we might not have been called in the context of a
     /// Tokio Runtime in initialization, so we must delay the actual
     /// construction of the resolver.
-    state: Arc<OnceCell<TokioAsyncResolver>>,
+    state: Arc<OnceLock<TokioResolver>>,
+
+    opts: Option<ResolverOpts>,
     rng: Option<rand::rngs::SmallRng>,
 }
 
 impl HickoryResolver {
+    /// Configure the resolver with input options.
+    pub fn with_options(mut self, opts: ResolverOpts) -> Self {
+        self.opts = Some(opts);
+        self
+    }
+
     /// Enable shuffle for the hickory resolver to make sure the ip addrs returned are shuffled.
     ///
     /// NOTES: introduce shuffle will add extra overhead like more allocations and shuffling.
     pub fn with_shuffle(mut self, shuffle: bool) -> Self {
         if shuffle {
             use rand::SeedableRng;
-            self.rng = Some(rand::rngs::SmallRng::from_entropy());
+            self.rng = Some(rand::rngs::SmallRng::from_os_rng());
         }
 
         self
+    }
+
+    /// Create a new resolver with the default configuration,
+    /// which reads from `/etc/resolve.conf`.
+    ///
+    /// Fallback to default configuration if the system configuration fails.
+    fn init_resolver(&self) -> TokioResolver {
+        let mut builder =
+            Resolver::builder(TokioConnectionProvider::default()).unwrap_or_else(|_| {
+                Resolver::builder_with_config(
+                    ResolverConfig::default(),
+                    TokioConnectionProvider::default(),
+                )
+            });
+
+        if let Some(mut opt) = self.opts.clone() {
+            let _ = mem::replace(&mut builder.options_mut(), &mut opt);
+        }
+
+        builder.build()
     }
 }
 
@@ -80,7 +112,9 @@ impl Resolve for HickoryResolver {
     fn resolve(&self, name: Name) -> Resolving {
         let mut hickory_resolver = self.clone();
         Box::pin(async move {
-            let resolver = hickory_resolver.state.get_or_try_init(new_resolver)?;
+            let resolver = hickory_resolver
+                .state
+                .get_or_init(|| hickory_resolver.init_resolver());
 
             let lookup = resolver.lookup_ip(name.as_str()).await?;
 
@@ -99,16 +133,4 @@ impl Resolve for HickoryResolver {
             Ok(addrs)
         })
     }
-}
-
-/// Create a new resolver with the default configuration,
-/// which reads from `/etc/resolve.conf`.
-fn new_resolver() -> io::Result<TokioAsyncResolver> {
-    let (config, opts) = system_conf::read_system_conf().map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("error reading DNS system conf: {}", e),
-        )
-    })?;
-    Ok(TokioAsyncResolver::tokio(config, opts))
 }
