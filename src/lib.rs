@@ -40,9 +40,9 @@
 //! }
 //! ```
 
-use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::Resolver;
 use hickory_resolver::TokioResolver;
+use hickory_resolver::name_server::TokioConnectionProvider;
 use reqwest::dns::Addrs;
 use reqwest::dns::Name;
 use reqwest::dns::Resolve;
@@ -54,8 +54,8 @@ use std::sync::OnceLock;
 
 // Re-export ResolverOpts as part of the public API.
 pub use hickory_resolver::config;
-pub use hickory_resolver::config::ResolverOpts;
 pub use hickory_resolver::config::ResolverConfig;
+pub use hickory_resolver::config::ResolverOpts;
 
 /// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
 #[derive(Debug, Default, Clone)]
@@ -103,17 +103,15 @@ impl HickoryResolver {
         let mut builder =
             Resolver::builder(TokioConnectionProvider::default()).unwrap_or_else(|_| {
                 match &self.conf {
-                    None =>
-                        Resolver::builder_with_config(
-                            ResolverConfig::default(),
-                            TokioConnectionProvider::default()
-                        ),
-                    Some(cfg) =>
-                        Resolver::builder_with_config(
-                            cfg.clone(),
-                            TokioConnectionProvider::default(),
-                        )
-                }               
+                    None => Resolver::builder_with_config(
+                        ResolverConfig::default(),
+                        TokioConnectionProvider::default(),
+                    ),
+                    Some(cfg) => Resolver::builder_with_config(
+                        cfg.clone(),
+                        TokioConnectionProvider::default(),
+                    ),
+                }
             });
 
         if let Some(mut opt) = self.opts.clone() {

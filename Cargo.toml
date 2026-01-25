@@ -4,13 +4,13 @@ categories = ["command-line-utilities"]
 description = "hickory resolver support for reqwest"
 documentation = "https://docs.rs/reqwest-hickory-resolver"
 repository = "https://github.com/Xuanwo/reqwest-hickory-resolver"
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 name = "reqwest-hickory-resolver"
-version = "0.2.0"
-rust-version = "1.70"
+version = "0.3.0"
+rust-version = "1.85"
 
 [dependencies]
-hickory-resolver = "0.25"
-reqwest = { version = "0.12", default-features = false }
+hickory-resolver = { version = "0.25" }
+reqwest = { version = "0.13", default-features = false }
 rand = { version = "0.9", features = ["small_rng"] }
