@@ -25,7 +25,6 @@ fn init_with_hickory_resolver() -> reqwest::Result<()> {
 }
 ```
 
-
 HickoryResolver has cache support, we can share the same resolver across different client
 for better performance.
 
