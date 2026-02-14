@@ -40,10 +40,9 @@
 //! }
 //! ```
 
-use hickory_resolver::config::ResolverConfig;
-use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::Resolver;
 use hickory_resolver::TokioResolver;
+use hickory_resolver::name_server::TokioConnectionProvider;
 use reqwest::dns::Addrs;
 use reqwest::dns::Name;
 use reqwest::dns::Resolve;
@@ -54,6 +53,8 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 // Re-export ResolverOpts as part of the public API.
+pub use hickory_resolver::config;
+pub use hickory_resolver::config::ResolverConfig;
 pub use hickory_resolver::config::ResolverOpts;
 
 /// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
@@ -64,6 +65,7 @@ pub struct HickoryResolver {
     /// construction of the resolver.
     state: Arc<OnceLock<TokioResolver>>,
 
+    conf: Option<ResolverConfig>,
     opts: Option<ResolverOpts>,
     rng: Option<rand::rngs::SmallRng>,
 }
@@ -72,6 +74,12 @@ impl HickoryResolver {
     /// Configure the resolver with input options.
     pub fn with_options(mut self, opts: ResolverOpts) -> Self {
         self.opts = Some(opts);
+        self
+    }
+
+    /// Configure the resolver with custom Config.
+    pub fn with_config(mut self, conf: ResolverConfig) -> Self {
+        self.conf = Some(conf);
         self
     }
 
@@ -94,10 +102,16 @@ impl HickoryResolver {
     fn init_resolver(&self) -> TokioResolver {
         let mut builder =
             Resolver::builder(TokioConnectionProvider::default()).unwrap_or_else(|_| {
-                Resolver::builder_with_config(
-                    ResolverConfig::default(),
-                    TokioConnectionProvider::default(),
-                )
+                match &self.conf {
+                    None => Resolver::builder_with_config(
+                        ResolverConfig::default(),
+                        TokioConnectionProvider::default(),
+                    ),
+                    Some(cfg) => Resolver::builder_with_config(
+                        cfg.clone(),
+                        TokioConnectionProvider::default(),
+                    ),
+                }
             });
 
         if let Some(mut opt) = self.opts.clone() {
