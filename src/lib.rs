@@ -56,6 +56,8 @@ use std::sync::OnceLock;
 pub use hickory_resolver::config;
 pub use hickory_resolver::config::ResolverConfig;
 pub use hickory_resolver::config::ResolverOpts;
+use rand::SeedableRng;
+use rand::rngs::SysRng;
 
 /// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
 #[derive(Debug, Default, Clone)]
@@ -88,8 +90,7 @@ impl HickoryResolver {
     /// NOTES: introduce shuffle will add extra overhead like more allocations and shuffling.
     pub fn with_shuffle(mut self, shuffle: bool) -> Self {
         if shuffle {
-            use rand::SeedableRng;
-            self.rng = Some(rand::rngs::SmallRng::from_os_rng());
+            self.rng = Some(rand::rngs::SmallRng::try_from_rng(&mut SysRng).unwrap());
         }
 
         self
