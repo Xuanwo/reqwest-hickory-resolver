@@ -1,44 +1,24 @@
-//! This crate provides [`HickoryResolver`] that implements reqwest [`Resolve`] so that we
+//! This crate provides [`HickoryResolver`] that implements reqwest [`Resolve`] so that you
 //! can use it as reqwest's DNS resolver.
 //!
 //! # Examples
 //!
-//! Init client with `HickoryResolver`.
+//! Create a reqwest client with `HickoryResolver`.
 //!
-//! ```
+//! ```no_run
 //! use std::sync::Arc;
 //!
 //! use reqwest::ClientBuilder;
-//! use reqwest_hickory_resolver::HickoryResolver;
+//! use reqwest_hickory_resolver::HickoryResolverBuilder;
 //!
-//! fn create_client_with_hickory_resolver() -> reqwest::Result<()> {
-//!     let mut builder = ClientBuilder::new();
-//!     builder = builder.dns_resolver(Arc::new(HickoryResolver::default()));
-//!     builder.build()?;
-//!     Ok(())
+//! fn create_client_with_hickory_resolver() -> reqwest::Client {
+//!     let resolver = HickoryResolverBuilder::default().build().unwrap();
+//!     ClientBuilder::new().dns_resolver(resolver).build().unwrap()
 //! }
 //! ```
 //!
-//! [`HickoryResolver`] has cache support, we can share the same resolver across different client
+//! [`HickoryResolver`] has cache support, you can share the same resolver across different client
 //! for better performance.
-//!
-//! ```
-//! use std::sync::Arc;
-//!
-//! use once_cell::sync::Lazy;
-//! use reqwest::ClientBuilder;
-//! use reqwest_hickory_resolver::HickoryResolver;
-//!
-//! static GLOBAL_RESOLVER: Lazy<Arc<HickoryResolver>> =
-//!     Lazy::new(|| Arc::new(HickoryResolver::default()));
-//!
-//! fn init_with_hickory_resolver() -> reqwest::Result<()> {
-//!     let mut builder = ClientBuilder::new();
-//!     builder = builder.dns_resolver(GLOBAL_RESOLVER.clone());
-//!     builder.build()?;
-//!     Ok(())
-//! }
-//! ```
 
 use hickory_resolver::Resolver;
 use hickory_resolver::TokioResolver;
@@ -90,7 +70,7 @@ impl HickoryResolverBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<HickoryResolver, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn build(self) -> Result<HickoryResolver, Box<dyn std::error::Error + Send + Sync>> {
         let shuffler = if self.shuffle {
             Some(SmallRng::try_from_rng(&mut SysRng)?)
         } else {
@@ -119,7 +99,7 @@ impl HickoryResolverBuilder {
     }
 }
 
-/// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
+/// HickoryResolver implements reqwest [`Resolve`] so that you can use it as reqwest's DNS resolver.
 #[derive(Debug, Clone)]
 pub struct HickoryResolver {
     resolver: Arc<TokioResolver>,
