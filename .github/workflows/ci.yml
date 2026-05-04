@@ -15,10 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Clippy
-        run: cargo clippy --all-targets --workspace -- -D warnings
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets --workspace -- -D warnings
 
   build:
     runs-on: ${{ matrix.os }}
@@ -27,8 +25,7 @@ jobs:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     steps:
       - uses: actions/checkout@v6
-      - name: Build
-        run: cargo build
+      - run: cargo build
 
   unit:
     runs-on: ${{ matrix.os }}
