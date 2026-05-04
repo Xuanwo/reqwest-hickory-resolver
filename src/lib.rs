@@ -11,7 +11,7 @@
 //! use reqwest::ClientBuilder;
 //! use reqwest_hickory_resolver::HickoryResolver;
 //!
-//! fn init_with_hickory_resolver() -> reqwest::Result<()> {
+//! fn create_client_with_hickory_resolver() -> reqwest::Result<()> {
 //!     let mut builder = ClientBuilder::new();
 //!     builder = builder.dns_resolver(Arc::new(HickoryResolver::default()));
 //!     builder.build()?;
@@ -42,110 +42,104 @@
 
 use hickory_resolver::Resolver;
 use hickory_resolver::TokioResolver;
-use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::net::runtime::TokioRuntimeProvider;
+use rand::SeedableRng;
+use rand::rngs::SmallRng;
+use rand::rngs::SysRng;
+use rand::seq::SliceRandom;
 use reqwest::dns::Addrs;
 use reqwest::dns::Name;
 use reqwest::dns::Resolve;
 use reqwest::dns::Resolving;
-use std::mem;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 // Re-export ResolverOpts as part of the public API.
 pub use hickory_resolver::config;
 pub use hickory_resolver::config::ResolverConfig;
 pub use hickory_resolver::config::ResolverOpts;
-use rand::SeedableRng;
-use rand::rngs::SysRng;
 
-/// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
+/// A builder for [`HickoryResolver`].
 #[derive(Debug, Default, Clone)]
-pub struct HickoryResolver {
-    /// Since we might not have been called in the context of a
-    /// Tokio Runtime in initialization, so we must delay the actual
-    /// construction of the resolver.
-    state: Arc<OnceLock<TokioResolver>>,
-
+pub struct HickoryResolverBuilder {
     conf: Option<ResolverConfig>,
     opts: Option<ResolverOpts>,
-    rng: Option<rand::rngs::SmallRng>,
+    shuffle: bool,
 }
 
-impl HickoryResolver {
-    /// Configure the resolver with input options.
-    pub fn with_options(mut self, opts: ResolverOpts) -> Self {
-        self.opts = Some(opts);
+impl HickoryResolverBuilder {
+    /// Configure the resolver with the given options.
+    pub fn with_options(mut self, options: ResolverOpts) -> Self {
+        self.opts = Some(options);
         self
     }
 
-    /// Configure the resolver with custom Config.
-    pub fn with_config(mut self, conf: ResolverConfig) -> Self {
-        self.conf = Some(conf);
+    /// Configure the resolver with given config as a fallback if the system config cannot be used.
+    ///
+    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
+    pub fn with_config(mut self, config: ResolverConfig) -> Self {
+        self.conf = Some(config);
         self
     }
 
     /// Enable shuffle for the hickory resolver to make sure the ip addrs returned are shuffled.
     ///
-    /// NOTES: introduce shuffle will add extra overhead like more allocations and shuffling.
+    /// Note that introducing shuffle will add extra overhead like more allocations and shuffling.
     pub fn with_shuffle(mut self, shuffle: bool) -> Self {
-        if shuffle {
-            self.rng = Some(rand::rngs::SmallRng::try_from_rng(&mut SysRng).unwrap());
-        }
-
+        self.shuffle = shuffle;
         self
     }
 
-    /// Create a new resolver with the default configuration,
-    /// which reads from `/etc/resolve.conf`.
-    ///
-    /// Fallback to default configuration if the system configuration fails.
-    fn init_resolver(&self) -> TokioResolver {
-        let mut builder =
-            Resolver::builder(TokioConnectionProvider::default()).unwrap_or_else(|_| {
-                match &self.conf {
-                    None => Resolver::builder_with_config(
-                        ResolverConfig::default(),
-                        TokioConnectionProvider::default(),
-                    ),
-                    Some(cfg) => Resolver::builder_with_config(
-                        cfg.clone(),
-                        TokioConnectionProvider::default(),
-                    ),
-                }
-            });
+    pub async fn build(self) -> Result<HickoryResolver, Box<dyn std::error::Error + Send + Sync>> {
+        let shuffler = if self.shuffle {
+            Some(SmallRng::try_from_rng(&mut SysRng)?)
+        } else {
+            None
+        };
 
-        if let Some(mut opt) = self.opts.clone() {
-            let _ = mem::replace(&mut builder.options_mut(), &mut opt);
-        }
+        let builder = if let Ok(builder) = Resolver::builder(TokioRuntimeProvider::default()) {
+            builder
+        } else if let Some(conf) = self.conf {
+            Resolver::builder_with_config(conf, TokioRuntimeProvider::default())
+        } else {
+            Resolver::builder_with_config(
+                ResolverConfig::default(),
+                TokioRuntimeProvider::default(),
+            )
+        };
 
-        builder.build()
+        let resolver = if let Some(opts) = self.opts {
+            builder.with_options(opts).build()?
+        } else {
+            builder.build()?
+        };
+        let resolver = Arc::new(resolver);
+
+        Ok(HickoryResolver { resolver, shuffler })
     }
+}
+
+/// HickoryResolver implements reqwest [`Resolve`] so that we can use it as reqwest's DNS resolver.
+#[derive(Debug, Clone)]
+pub struct HickoryResolver {
+    resolver: Arc<TokioResolver>,
+    shuffler: Option<SmallRng>,
 }
 
 impl Resolve for HickoryResolver {
     fn resolve(&self, name: Name) -> Resolving {
-        let mut hickory_resolver = self.clone();
+        let HickoryResolver {
+            resolver,
+            mut shuffler,
+        } = self.clone();
+
         Box::pin(async move {
-            let resolver = hickory_resolver
-                .state
-                .get_or_init(|| hickory_resolver.init_resolver());
-
             let lookup = resolver.lookup_ip(name.as_str()).await?;
-
-            let addrs: Addrs = if let Some(rng) = &mut hickory_resolver.rng {
-                use rand::seq::SliceRandom;
-
-                // Collect all the addresses into a vector and shuffle them.
-                let mut ips = lookup.into_iter().collect::<Vec<_>>();
-                ips.shuffle(rng);
-
-                Box::new(ips.into_iter().map(|addr| SocketAddr::new(addr, 0)))
-            } else {
-                Box::new(lookup.into_iter().map(|addr| SocketAddr::new(addr, 0)))
-            };
-
-            Ok(addrs)
+            let mut ips = lookup.iter().collect::<Vec<_>>();
+            if let Some(shuffler) = shuffler.as_mut() {
+                ips.shuffle(shuffler);
+            }
+            Ok(Box::new(ips.into_iter().map(|addr| SocketAddr::new(addr, 0))) as Addrs)
         })
     }
 }
