@@ -23,9 +23,6 @@
 use hickory_resolver::Resolver;
 use hickory_resolver::TokioResolver;
 use hickory_resolver::net::runtime::TokioRuntimeProvider;
-use rand::SeedableRng;
-use rand::rngs::SmallRng;
-use rand::rngs::SysRng;
 use rand::seq::SliceRandom;
 use reqwest::dns::Addrs;
 use reqwest::dns::Name;
@@ -62,7 +59,7 @@ impl HickoryResolverBuilder {
         self
     }
 
-    /// Enable shuffle for the hickory resolver to make sure the ip addrs returned are shuffled.
+    /// Randomize the address order on each resolution, including cached lookups.
     ///
     /// Note that introducing shuffle will add extra overhead like more allocations and shuffling.
     pub fn with_shuffle(mut self, shuffle: bool) -> Self {
@@ -71,12 +68,6 @@ impl HickoryResolverBuilder {
     }
 
     pub fn build(self) -> Result<HickoryResolver, Box<dyn std::error::Error + Send + Sync>> {
-        let shuffler = if self.shuffle {
-            Some(SmallRng::try_from_rng(&mut SysRng)?)
-        } else {
-            None
-        };
-
         let builder = if let Ok(builder) = Resolver::builder(TokioRuntimeProvider::default()) {
             builder
         } else if let Some(conf) = self.conf {
@@ -95,7 +86,10 @@ impl HickoryResolverBuilder {
         };
         let resolver = Arc::new(resolver);
 
-        Ok(HickoryResolver { resolver, shuffler })
+        Ok(HickoryResolver {
+            resolver,
+            shuffle: self.shuffle,
+        })
     }
 }
 
@@ -103,21 +97,19 @@ impl HickoryResolverBuilder {
 #[derive(Debug, Clone)]
 pub struct HickoryResolver {
     resolver: Arc<TokioResolver>,
-    shuffler: Option<SmallRng>,
+    shuffle: bool,
 }
 
 impl Resolve for HickoryResolver {
     fn resolve(&self, name: Name) -> Resolving {
-        let HickoryResolver {
-            resolver,
-            mut shuffler,
-        } = self.clone();
+        let HickoryResolver { resolver, shuffle } = self.clone();
 
         Box::pin(async move {
             let lookup = resolver.lookup_ip(name.as_str()).await?;
             let mut ips = lookup.iter().collect::<Vec<_>>();
-            if let Some(shuffler) = shuffler.as_mut() {
-                ips.shuffle(shuffler);
+            if shuffle {
+                // Reuse the current thread's RNG so its state advances across lookups.
+                ips.shuffle(&mut rand::rng());
             }
             Ok(Box::new(ips.into_iter().map(|addr| SocketAddr::new(addr, 0))) as Addrs)
         })
